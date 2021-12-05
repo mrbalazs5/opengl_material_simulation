@@ -17,6 +17,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "Config.h"
 #include "Shader.h"
+#include "Texture.h"
 
 using namespace rapidxml;
 using namespace std;
@@ -26,9 +27,10 @@ class Application {
             Application(const char* windowTitle);
             void run();
 
+            int drawCircleSize;
             double mouseXPos, mouseYPos;
             int leftMouseButtonPressed;
-            int sandMode, wallMode, eraserMode;
+            int sandMode, waterMode, wallMode, eraserMode;
             unsigned int VAO, VBO, EBO, FBO;
             int src, dest;
             int activeBuffer = 0;

@@ -11,6 +11,20 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }  
 
+void onMouseScroll(GLFWwindow* window, double xoffset, double yoffset) {
+    Application *app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+
+    if(app->drawCircleSize > 50) {
+        app->drawCircleSize = 50;
+    }
+
+    if(app->drawCircleSize < 3) {
+        app->drawCircleSize = 3;
+    }
+
+    app->drawCircleSize += yoffset * 2;
+}
+
 void onMousePosChange(GLFWwindow* window, double xPos, double yPos) {
     Application *app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
@@ -37,18 +51,28 @@ void Application::handleKeyboard() {
 
     if(glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS){
         this->sandMode = 1;
+        this->waterMode = 0;
         this->wallMode = 0;
         this->eraserMode = 0;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS){
+    if(glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS){
         this->sandMode = 0;
-        this->wallMode = 1;
+        this->waterMode = 1;
+        this->wallMode = 0;
         this->eraserMode = 0;
     }
 
     if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS){
         this->sandMode = 0;
+        this->waterMode = 0;
+        this->wallMode = 1;
+        this->eraserMode = 0;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS){
+        this->sandMode = 0;
+        this->waterMode = 0;
         this->wallMode = 0;
         this->eraserMode = 1;
     }
@@ -107,55 +131,19 @@ void Application::run() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    // Create shader
     Shader shader("shaders/shader.vs", "shaders/shader.fs");
 
-    unsigned int texture[2];
-    glGenTextures(2, (GLuint*) &texture);
-    float textureBorderColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    // Create 2 texture for swapping
+    Texture texture1(this->config->windowWidth, this->config->windowHeight);
+    Texture texture2(this->config->windowWidth, this->config->windowHeight);
 
-    glBindTexture(GL_TEXTURE_2D, texture[0]);
-
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0, 
-        GL_RGBA, 
-        this->config->windowWidth, 
-        this->config->windowHeight, 
-        0, 
-        GL_RGBA, 
-        GL_UNSIGNED_BYTE, 
-        NULL
-    );
-
-    glGenerateMipmap( GL_TEXTURE_2D );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, textureBorderColor);
-
-    glBindTexture(GL_TEXTURE_2D, texture[1]);
-
-    glTexImage2D(
-        GL_TEXTURE_2D, 
-        0, 
-        GL_RGBA, 
-        this->config->windowWidth, 
-        this->config->windowHeight, 
-        0, 
-        GL_RGBA, 
-        GL_UNSIGNED_BYTE, 
-        NULL
-    );
-
-    glGenerateMipmap( GL_TEXTURE_2D );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, textureBorderColor);
-
+    // Frame buffer object for drawing
     glGenFramebuffers(1, &this->FBO);
     glBindFramebuffer(GL_FRAMEBUFFER, this->FBO);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture[0], 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texture[1], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1.id[0], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texture2.id[0], 0);
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer is not complete!" << std::endl;
@@ -174,14 +162,20 @@ void Application::run() {
             this->mouseXPos / this->config->windowWidth,
             1.0 - (this->mouseYPos / this->config->windowHeight)
         );
+        shader.setInt("widthU", this->config->windowWidth);
+        shader.setInt("heightU", this->config->windowHeight);
+        shader.setInt("drawCircleSizeU", this->drawCircleSize);
         shader.setInt("mouseLeftButtonU", this->leftMouseButtonPressed);
         shader.setInt("sandModeU", this->sandMode);
+        shader.setInt("waterModeU", this->waterMode);
         shader.setInt("wallModeU", this->wallMode);
         shader.setInt("eraserModeU", this->eraserMode);
 
         this->src = this->activeBuffer;
         this->dest = 1 - this->activeBuffer;
         this->activeBuffer = 1 - this->activeBuffer;
+
+        unsigned int texture = src == 0 ? texture1.id[0] : texture2.id[0];
 
         glBindVertexArray(this->VAO);
 
@@ -190,13 +184,13 @@ void Application::run() {
         GLuint buffs[] = { GL_COLOR_ATTACHMENT0 + (GLuint)dest };
         glDrawBuffers(1, buffs);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture[src]);
+        glBindTexture(GL_TEXTURE_2D, texture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture[src]);
+        glBindTexture(GL_TEXTURE_2D, texture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         glBindVertexArray(0);
@@ -237,8 +231,10 @@ void Application::init() {
         throw runtime_error("Failed to initialize GLAD.");
     }    
 
-    glfwSetWindowUserPointer(this->window, this);
+    this->drawCircleSize = 10;
 
+    glfwSetWindowUserPointer(this->window, this);
+    glfwSetScrollCallback(this->window, onMouseScroll);
     glfwSetCursorPosCallback(this->window, onMousePosChange);
     glfwSetMouseButtonCallback(window, onMouseClick);
     glfwSetFramebufferSizeCallback(this->window, onWindowResize);  
