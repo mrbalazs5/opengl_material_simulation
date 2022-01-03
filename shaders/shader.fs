@@ -138,25 +138,14 @@ vec4 calcColor(){
     if(eqCol(hereColor, black) && eqCol(upColor, water_color)) return upColor;
 
     //on a wall or on sand the water will go horizontaly
-    if(eqCol(downColor, wall_color) && eqCol(hereColor, black) && eqCol(leftColor, water_color)) return leftColor;
+    if((eqCol(downColor, wall_color) || pos.y <= unitPixel.y) && eqCol(hereColor, black) && eqCol(leftColor, water_color)) return leftColor;
     if(eqCol(hereColor, black) && eqCol(leftColor, water_color) && (eqCol(downleftColor, wall_color) || eqCol(downleftColor, sand_color))) return water_color;
-    if(eqCol(downColor, wall_color) && eqCol(hereColor, black) && eqCol(rightColor, water_color)) return rightColor;
+    if((eqCol(downColor, wall_color) || pos.y <= unitPixel.y) && eqCol(hereColor, black) && eqCol(rightColor, water_color)) return rightColor;
     if(eqCol(hereColor, black) && eqCol(rightColor, water_color) && (eqCol(downrightColor, wall_color) || eqCol(downrightColor, sand_color))) return water_color;
 
     if(eqCol(hereColor, water_color) && eqCol(downColor, black)) return black;
     if(eqCol(hereColor, water_color) && (eqCol(leftColor, sand_color) || eqCol(leftColor, wall_color))) return water_color;
     if(eqCol(hereColor, water_color) && (eqCol(rightColor, sand_color) || eqCol(rightColor, wall_color))) return water_color;
-
-    //stacking up (on sand or water or on wall) or sliding if posible
-    if(eqCol(hereColor, water_color) && (eqCol(downColor, sand_color) || eqCol(downColor, water_color) || eqCol(downColor, wall_color)))
-        if(eqCol(downleftColor, water_color) && eqCol(rightColor, black) && eqCol(downrightColor, black) && eqCol(rightrightColor, black) && eqCol(upColor,black) && eqCol(uprightColor,black))  //fall to the right
-            return black;
-        else if(eqCol(downrightColor, water_color) && eqCol(leftColor, black) && eqCol(downleftColor, black) && eqCol(leftleftColor, black) && eqCol(upColor, black) && eqCol(upleftColor, black))  //fall to the left
-            return black;
-        else if((leftleftColor == black) && (downleftColor == black) && (leftColor == black) && (upleftColor == black) && (upColor == black) && (uprightColor == black) && (rightColor == black) && (rightrightColor == black) && (downrightColor == black)) //fal to one of both sides
-            return black;
-        else
-            return hereColor;
 
     // END WATER RULES
 
